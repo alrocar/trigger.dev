@@ -1,4 +1,5 @@
-import { ClickHouse, getTinybirdReaderUrl, createTinybirdConfig } from "@internal/clickhouse";
+import { ClickHouse } from "@internal/clickhouse";
+import { createTinybirdConfig } from "./tinybirdConfig.server";
 import { env } from "~/env.server";
 import { singleton } from "~/utils/singleton";
 

@@ -70,14 +70,36 @@ export class ClickHouse {
     this.logger = config.logger ?? new Logger("ClickHouse", config.logLevel ?? "debug");
 
     if ('tinybirdToken' in config) {
-      // Use the centralized Tinybird client creation utility
-      const { createTinybirdClients } = require("./client/tinybirdUtils.js");
-      
-      // Create both reader and writer clients using the utility
-      const { reader, writer } = createTinybirdClients(config, this.logger);
+      // Tinybird configuration
+      this.logger.info("🐦 Initializing Tinybird integration", {
+        tinybirdBaseUrl: config.tinybirdBaseUrl || "https://api.tinybird.co",
+        clickhouseReaderUrl: config.clickhouseReaderUrl
+      });
+
+      // Create a ClickHouse reader for queries - ensure we're using the token correctly
+      // Tinybird supports ClickHouse HTTP API format including auth in URL
+      const reader = new ClickhouseClient({
+        name: config.readerName ?? "clickhouse-reader",
+        url: config.clickhouseReaderUrl,
+        clickhouseSettings: config.clickhouseSettings,
+        logger: this.logger,
+        logLevel: config.logLevel,
+        keepAlive: config.keepAlive,
+        httpAgent: config.httpAgent,
+        maxOpenConnections: config.maxOpenConnections,
+        compression: config.compression,
+      });
+
+      // Create a Tinybird writer for inserts
+      this.writer = new TinybirdClient({
+        token: config.tinybirdToken,
+        baseUrl: config.tinybirdBaseUrl,
+        fallbackReader: reader,
+        logger: this.logger,
+        logLevel: config.logLevel,
+      });
 
       this.reader = reader;
-      this.writer = writer;
       this._splitClients = true;
     } else if (config.url) {
       const url = new URL(config.url);
