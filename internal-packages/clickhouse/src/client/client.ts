@@ -148,7 +148,6 @@ export class ClickhouseClient implements ClickhouseReader, ClickhouseWriter {
 
         let unparsedRows: Array<TOut> = [];
 
-
         // Automatically remove database prefixes when using Tinybird
         let finalQuery = req.query;
         if (process.env.TINYBIRD_TOKEN && finalQuery.includes('trigger_dev.')) {
@@ -172,34 +171,6 @@ export class ClickhouseClient implements ClickhouseReader, ClickhouseWriter {
         );
 
         if (clickhouseError) {
-          // Enhanced error logging for authentication issues
-          if (clickhouseError.message.includes('authentication') ||
-              clickhouseError.message.includes('auth') ||
-              clickhouseError.message.includes('token')) {
-            console.error("❌ ClickHouse authentication error", {
-              error: clickhouseError.message,
-              stack: clickhouseError.stack,
-              clientName: this.name,
-              env: {
-                TINYBIRD_TOKEN_LENGTH: process.env.TINYBIRD_TOKEN ? process.env.TINYBIRD_TOKEN.length : 0,
-                TINYBIRD_BASE_URL: process.env.TINYBIRD_BASE_URL,
-                CLICKHOUSE_URL: process.env.CLICKHOUSE_URL,
-                CLICKHOUSE_READER_URL: process.env.CLICKHOUSE_READER_URL,
-                CLICKHOUSE_USER: process.env.CLICKHOUSE_USER,
-                HAS_CLICKHOUSE_PASSWORD: process.env.CLICKHOUSE_PASSWORD ? 'Yes' : 'No'
-              }
-            });
-
-            // Try to extract URL from error message to help with debugging
-            try {
-              const urlMatch = req.query.match(/FROM\s+([\w\.]+)/);
-              const tableMatch = urlMatch ? urlMatch[1] : 'unknown';
-              console.error("❌ Authentication failed for query on table: " + tableMatch);
-            } catch (e) {
-              // Ignore extraction errors
-            }
-          }
-
           this.logger.error("Error querying clickhouse", {
             name: req.name,
             error: clickhouseError,
