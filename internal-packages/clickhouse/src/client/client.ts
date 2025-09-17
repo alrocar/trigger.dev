@@ -151,14 +151,13 @@ export class ClickhouseClient implements ClickhouseReader, ClickhouseWriter {
         // Automatically remove database prefixes when using Tinybird
         let finalQuery = req.query;
         if (process.env.TINYBIRD_TOKEN && finalQuery.includes('trigger_dev.')) {
-          // Replace all instances of 'trigger_dev.' with empty string
           finalQuery = finalQuery.replace(/trigger_dev\./g, '');
         }
 
         // Execute the query with the potentially modified query
         const [clickhouseError, res] = await tryCatch(
           this.client.query({
-            query: finalQuery, // Use the modified query that may have database prefixes removed
+            query: finalQuery,
             query_params: validParams?.data,
             format: "JSONEachRow",
             query_id: queryId,
