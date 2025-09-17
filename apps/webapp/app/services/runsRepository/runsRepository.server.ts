@@ -172,7 +172,6 @@ export class RunsRepository implements IRunsRepository {
           // If ClickHouse fails, retry with Postgres
           if (repository.name === "clickhouse") {
             this.logger?.warn("ClickHouse failed, retrying with Postgres", { error });
-
             return startActiveSpan(
               "runsRepository.listRunIds.fallback",
               async () => {
