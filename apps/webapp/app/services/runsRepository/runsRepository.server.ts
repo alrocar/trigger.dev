@@ -8,7 +8,6 @@ import parseDuration from "parse-duration";
 import { z } from "zod";
 import { timeFilters } from "~/components/runs/v3/SharedFilters";
 import { type PrismaClient } from "~/db.server";
-import { env } from "~/env.server";
 import { FEATURE_FLAG, makeFlags } from "~/v3/featureFlags.server";
 import { startActiveSpan } from "~/v3/tracer.server";
 import { logger } from "../logger.server";
@@ -121,17 +120,17 @@ export interface IRunsRepository {
 export class RunsRepository implements IRunsRepository {
   private readonly clickHouseRunsRepository: ClickHouseRunsRepository;
   private readonly postgresRunsRepository: PostgresRunsRepository;
-  private readonly defaultRepository: "clickhouse" | "postgres" | "tinybird";
+  private readonly defaultRepository: "clickhouse" | "postgres";
   private readonly logger: Logger;
 
   constructor(
     private readonly options: RunsRepositoryOptions & {
-      defaultRepository?: "clickhouse" | "postgres" | "tinybird";
+      defaultRepository?: "clickhouse" | "postgres";
     }
   ) {
     this.clickHouseRunsRepository = new ClickHouseRunsRepository(options);
     this.postgresRunsRepository = new PostgresRunsRepository(options);
-    this.defaultRepository = options.defaultRepository ?? env.DEFAULT_RUNS_LIST_REPOSITORY ?? "clickhouse";
+    this.defaultRepository = options.defaultRepository ?? "clickhouse";
     this.logger = options.logger ?? logger;
   }
 
@@ -149,11 +148,7 @@ export class RunsRepository implements IRunsRepository {
 
       span.setAttribute("repository.name", runsListRepository);
 
-      this.logger.info("Repository selection", {
-        runsListRepository,
-        defaultRepository: this.defaultRepository,
-        envSetting: env.DEFAULT_RUNS_LIST_REPOSITORY
-      });
+      logger.log("runsListRepository", { runsListRepository });
 
       switch (runsListRepository) {
         case "postgres":
@@ -176,14 +171,7 @@ export class RunsRepository implements IRunsRepository {
         } catch (error) {
           // If ClickHouse fails, retry with Postgres
           if (repository.name === "clickhouse") {
-            this.logger?.warn("ClickHouse failed, retrying with Postgres", {
-              error,
-              errorDetails: error instanceof Error ? {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-              } : String(error)
-            });
+            this.logger?.warn("ClickHouse failed, retrying with Postgres", { error });
 
             return startActiveSpan(
               "runsRepository.listRunIds.fallback",

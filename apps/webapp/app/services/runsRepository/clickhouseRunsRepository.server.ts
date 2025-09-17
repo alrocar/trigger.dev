@@ -18,9 +18,10 @@ export class ClickHouseRunsRepository implements IRunsRepository {
 
   async listRunIds(options: ListRunsOptions) {
     const queryBuilder = this.options.clickhouse.taskRuns.queryBuilder();
-    const filters = await convertRunListInputOptionsToFilterRunsOptions(options, this.options.prisma);
-
-    applyRunFiltersToQueryBuilder(queryBuilder, filters);
+    applyRunFiltersToQueryBuilder(
+      queryBuilder,
+      await convertRunListInputOptionsToFilterRunsOptions(options, this.options.prisma)
+    );
 
     if (options.page.cursor) {
       if (options.page.direction === "forward" || !options.page.direction) {
