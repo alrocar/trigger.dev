@@ -9,7 +9,6 @@ import {
 import { InsertError } from "./errors.js";
 import { ClickHouseSettings } from "@clickhouse/client";
 import type { InsertResult } from "@clickhouse/client";
-import { TINYBIRD_TABLE_MAPPING } from "./tinybirdMapping.js";
 import { Logger, type LogLevel } from "@trigger.dev/core/logger";
 
 export interface TinybirdClientOptions {
@@ -71,14 +70,10 @@ export class TinybirdClient implements ClickhouseReader, ClickhouseWriter {
         // Extract just the table name without database prefix for Tinybird
         const parts = req.table.split('.');
         // Always use just the table name without the database prefix
-        const tableName = parts.length > 1 ? parts[parts.length - 1] : req.table;
+        const datasourceName = parts.length > 1 ? parts[parts.length - 1] : req.table;
 
-        // Check if we have a mapping for this table
-        let datasourceName = TINYBIRD_TABLE_MAPPING[tableName] || tableName;
-
-        this.logger.debug("🐦 Mapping table to datasource", {
+        this.logger.debug("🐦 Using datasource", {
           originalTable: req.table,
-          tableName,
           datasourceName
         });
 
@@ -204,9 +199,13 @@ export class TinybirdClient implements ClickhouseReader, ClickhouseWriter {
           response_headers: responseHeaders,
         }];
       } catch (error: any) {
+        // Extract datasource name for error logging
+        const tableParts = req.table.split('.');
+        const datasourceName = tableParts.length > 1 ? tableParts[tableParts.length - 1] : req.table;
+        
         this.logger.error("❌ Tinybird insert error", {
           error,
-          datasource: TINYBIRD_TABLE_MAPPING[req.table] || req.table,
+          datasource: datasourceName,
           table: req.table,
           errorStack: error.stack
         });
