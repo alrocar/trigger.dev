@@ -159,7 +159,6 @@ export class RunsRepository implements IRunsRepository {
         case "postgres":
           return this.postgresRunsRepository;
         case "tinybird":
-          return this.clickHouseRunsRepository;
         case "clickhouse":
         default:
           return this.clickHouseRunsRepository;

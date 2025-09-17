@@ -148,24 +148,12 @@ export class ClickhouseClient implements ClickhouseReader, ClickhouseWriter {
 
         let unparsedRows: Array<TOut> = [];
 
-        // Log the request details for debugging - without accessing private properties
-        console.log("🔍 ClickHouse HTTP Request", {
-          clientName: this.name,
-          query: req.query,
-          params: validParams?.data,
-          settings: {
-            ...req.settings,
-            ...options?.params?.clickhouse_settings,
-          }
-        });
 
         // Automatically remove database prefixes when using Tinybird
         let finalQuery = req.query;
         if (process.env.TINYBIRD_TOKEN && finalQuery.includes('trigger_dev.')) {
-          console.log("🐦 Removing database prefixes for Tinybird compatibility");
           // Replace all instances of 'trigger_dev.' with empty string
           finalQuery = finalQuery.replace(/trigger_dev\./g, '');
-          console.log("🐦 Modified query:", finalQuery);
         }
 
         // Execute the query with the potentially modified query

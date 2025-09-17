@@ -21,9 +21,6 @@ function initializeRunsReplicationInstance() {
   // Check if we have Tinybird token for the replication
   if (env.TINYBIRD_TOKEN) {
     console.log("🐦 Using Tinybird for runs replication");
-    console.log(`🐦 Tinybird base URL: ${env.TINYBIRD_BASE_URL}`);
-    console.log(`🐦 Tinybird token length: ${env.TINYBIRD_TOKEN.length}`);
-    console.log(`🐦 Tinybird token prefix: ${env.TINYBIRD_TOKEN.substring(0, 10)}...`);
 
     // Get ClickHouse reader URL for queries
     const readerUrl = env.CLICKHOUSE_READER_URL || env.CLICKHOUSE_URL;
@@ -42,7 +39,6 @@ function initializeRunsReplicationInstance() {
     // Construct the URL with Tinybird token authentication
     const tinybirdReaderUrl = `${protocol}//default:${env.TINYBIRD_TOKEN}@${host}:${port}/`;
     
-    console.log(`🐦 Constructed replication reader URL: ${protocol}//default:***@${host}:${port}/`);
 
     clickhouse = new ClickHouse({
       tinybirdToken: env.TINYBIRD_TOKEN,

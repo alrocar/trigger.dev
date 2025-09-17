@@ -25,10 +25,6 @@ function initializeClickhouseClient() {
     const tinybirdReaderUrl = `${protocol}//default:${env.TINYBIRD_TOKEN}@${host}:${port}/`;
     
     console.log(`🐦 Tinybird integration enabled with ClickHouse reader at ${host}:${port}`);
-    console.log(`🐦 Tinybird base URL: ${env.TINYBIRD_BASE_URL}`);
-    console.log(`🐦 Tinybird token length: ${env.TINYBIRD_TOKEN.length}`);
-    console.log(`🐦 Tinybird token prefix: ${env.TINYBIRD_TOKEN.substring(0, 10)}...`);
-    console.log(`🐦 Constructed reader URL: ${protocol}//default:***@${host}:${port}/`);
 
     return new ClickHouse({
       tinybirdToken: env.TINYBIRD_TOKEN,
