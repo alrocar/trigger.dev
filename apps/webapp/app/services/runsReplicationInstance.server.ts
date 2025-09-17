@@ -33,13 +33,21 @@ function initializeRunsReplicationInstance() {
       return;
     }
 
-    const url = new URL(readerUrl);
-    url.searchParams.delete("secure");
+    // Parse the base URL to get host and port
+    const baseUrl = new URL(readerUrl);
+    const host = baseUrl.hostname;
+    const port = baseUrl.port || '7182';
+    const protocol = baseUrl.protocol || 'http:';
+    
+    // Construct the URL with Tinybird token authentication
+    const tinybirdReaderUrl = `${protocol}//default:${env.TINYBIRD_TOKEN}@${host}:${port}/`;
+    
+    console.log(`🐦 Constructed replication reader URL: ${protocol}//default:***@${host}:${port}/`);
 
     clickhouse = new ClickHouse({
       tinybirdToken: env.TINYBIRD_TOKEN,
       tinybirdBaseUrl: env.TINYBIRD_BASE_URL,
-      clickhouseReaderUrl: url.toString(),
+      clickhouseReaderUrl: tinybirdReaderUrl,
       readerName: "runs-replication-reader",
       keepAlive: {
         enabled: env.RUN_REPLICATION_KEEP_ALIVE_ENABLED === "1",

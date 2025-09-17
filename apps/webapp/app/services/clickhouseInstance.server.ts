@@ -7,35 +7,33 @@ export const clickhouseClient = singleton("clickhouseClient", initializeClickhou
 function initializeClickhouseClient() {
   // Check if Tinybird token is set
   if (env.TINYBIRD_TOKEN) {
-    // For Tinybird, the authentication should be in the URL format that ClickHouse client expects
-    // Your working curl example shows format: default:p.eyJ1...
-    // Use CLICKHOUSE_URL if CLICKHOUSE_READER_URL doesn't have authentication
+    // For Tinybird, we need to construct the ClickHouse reader URL with the token
+    // Tinybird expects the format: http://default:p.eyJ1...@localhost:7182/
     let readerUrl = env.CLICKHOUSE_READER_URL || env.CLICKHOUSE_URL;
     
-    // If CLICKHOUSE_READER_URL is set but doesn't have authentication, use CLICKHOUSE_URL instead
-    if (env.CLICKHOUSE_READER_URL && !env.CLICKHOUSE_READER_URL.includes('@')) {
-      console.log("🔒 CLICKHOUSE_READER_URL has no authentication, using CLICKHOUSE_URL instead");
-      readerUrl = env.CLICKHOUSE_URL;
+    if (!readerUrl) {
+      throw new Error("Missing CLICKHOUSE_READER_URL or CLICKHOUSE_URL for Tinybird reader");
     }
     
-    const url = new URL(readerUrl);
-    url.searchParams.delete("secure");
-
-    // Make sure we're using the correct authentication format
-    console.log(`🔒 Using authentication from URL: ${url.username ? 'yes' : 'no'}, query params: ${url.search}`);
-    if (!url.username && !url.password && !url.search.includes('default:p.')) {
-      console.warn("⚠️ ClickHouse URL might be missing authentication credentials for Tinybird");
-    }
-
-    console.log(`🐦 Tinybird integration enabled with ClickHouse reader at ${url.host}`);
+    // Parse the base URL to get host and port
+    const baseUrl = new URL(readerUrl);
+    const host = baseUrl.hostname;
+    const port = baseUrl.port || '7182';
+    const protocol = baseUrl.protocol || 'http:';
+    
+    // Construct the URL with Tinybird token authentication
+    const tinybirdReaderUrl = `${protocol}//default:${env.TINYBIRD_TOKEN}@${host}:${port}/`;
+    
+    console.log(`🐦 Tinybird integration enabled with ClickHouse reader at ${host}:${port}`);
     console.log(`🐦 Tinybird base URL: ${env.TINYBIRD_BASE_URL}`);
     console.log(`🐦 Tinybird token length: ${env.TINYBIRD_TOKEN.length}`);
     console.log(`🐦 Tinybird token prefix: ${env.TINYBIRD_TOKEN.substring(0, 10)}...`);
+    console.log(`🐦 Constructed reader URL: ${protocol}//default:***@${host}:${port}/`);
 
     return new ClickHouse({
       tinybirdToken: env.TINYBIRD_TOKEN,
       tinybirdBaseUrl: env.TINYBIRD_BASE_URL,
-      clickhouseReaderUrl: url.toString(),
+      clickhouseReaderUrl: tinybirdReaderUrl,
       readerName: "clickhouse-reader",
       keepAlive: {
         enabled: env.CLICKHOUSE_KEEP_ALIVE_ENABLED === "1",
@@ -50,6 +48,10 @@ function initializeClickhouseClient() {
   }
 
   // Standard ClickHouse setup
+  if (!env.CLICKHOUSE_URL) {
+    throw new Error("Missing CLICKHOUSE_URL for standard ClickHouse setup");
+  }
+  
   const url = new URL(env.CLICKHOUSE_URL);
 
   // Remove secure param
