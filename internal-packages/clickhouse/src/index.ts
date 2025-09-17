@@ -2,6 +2,7 @@ import { ClickHouseSettings } from "@clickhouse/client";
 import { ClickhouseClient } from "./client/client.js";
 import { ClickhouseReader, ClickhouseWriter } from "./client/types.js";
 import { NoopClient } from "./client/noop.js";
+import { TinybirdClient } from "./client/tinybird.js";
 import {
   insertTaskRuns,
   insertRawTaskRunPayloads,
@@ -35,6 +36,13 @@ export type ClickhouseCommonConfig = {
   maxOpenConnections?: number;
 };
 
+export type TinybirdConfig = {
+  tinybirdToken: string;
+  tinybirdBaseUrl?: string;
+  clickhouseReaderUrl: string; // Still need ClickHouse for reads
+  readerName?: string;
+} & ClickhouseCommonConfig;
+
 export type ClickHouseConfig =
   | ({
       name?: string;
@@ -57,10 +65,42 @@ export class ClickHouse {
   private readonly logger: Logger;
   private _splitClients: boolean;
 
-  constructor(config: ClickHouseConfig) {
+  constructor(config: ClickHouseConfig | TinybirdConfig) {
     this.logger = config.logger ?? new Logger("ClickHouse", config.logLevel ?? "debug");
 
-    if (config.url) {
+    if ('tinybirdToken' in config) {
+      // Tinybird configuration
+      this.logger.info("🐦 Initializing Tinybird integration", {
+        tinybirdBaseUrl: config.tinybirdBaseUrl || "https://api.tinybird.co",
+        clickhouseReaderUrl: config.clickhouseReaderUrl
+      });
+
+      // Create a ClickHouse reader for queries - ensure we're using the token correctly
+      // Tinybird supports ClickHouse HTTP API format including auth in URL
+      const reader = new ClickhouseClient({
+        name: config.readerName ?? "clickhouse-reader",
+        url: config.clickhouseReaderUrl,
+        clickhouseSettings: config.clickhouseSettings,
+        logger: this.logger,
+        logLevel: config.logLevel,
+        keepAlive: config.keepAlive,
+        httpAgent: config.httpAgent,
+        maxOpenConnections: config.maxOpenConnections,
+        compression: config.compression,
+      });
+
+      // Create a Tinybird writer for inserts
+      this.writer = new TinybirdClient({
+        token: config.tinybirdToken,
+        baseUrl: config.tinybirdBaseUrl,
+        fallbackReader: reader,
+        logger: this.logger,
+        logLevel: config.logLevel,
+      });
+
+      this.reader = reader;
+      this._splitClients = true;
+    } else if (config.url) {
       const url = new URL(config.url);
       url.password = "redacted";
 
@@ -115,6 +155,16 @@ export class ClickHouse {
   }
 
   static fromEnv(): ClickHouse {
+    // Check if Tinybird is configured
+    if (process.env.TINYBIRD_TOKEN) {
+      return new ClickHouse({
+        tinybirdToken: process.env.TINYBIRD_TOKEN,
+        tinybirdBaseUrl: process.env.TINYBIRD_BASE_URL,
+        clickhouseReaderUrl: process.env.CLICKHOUSE_READER_URL || process.env.CLICKHOUSE_URL || '',
+        readerName: process.env.CLICKHOUSE_READER_NAME,
+      });
+    }
+
     if (
       typeof process.env.CLICKHOUSE_WRITER_URL === "string" &&
       typeof process.env.CLICKHOUSE_READER_URL === "string"

@@ -1,0 +1,12 @@
+DESCRIPTION >
+    Separate payload storage datasource for task runs
+
+SCHEMA >
+    `run_id` String `json:$.run_id`,
+    `environment_id` String `json:$.environment_id` DEFAULT '',
+    `payload` String `json:$.payload`,
+    `created_at` DateTime64(3) `json:$.created_at`
+
+ENGINE "MergeTree"
+ENGINE_PARTITION_KEY "toYYYYMM(created_at)"
+ENGINE_SORTING_KEY "environment_id, created_at, run_id"

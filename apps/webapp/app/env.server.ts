@@ -1097,12 +1097,22 @@ const EnvironmentSchema = z
     RUN_REPLICATION_INSERT_STRATEGY: z.enum(["insert", "insert_async"]).default("insert"),
 
     // Clickhouse
-    CLICKHOUSE_URL: z.string(),
+    CLICKHOUSE_URL: z.string().optional(),
+    CLICKHOUSE_READER_URL: z.string().optional(),
+    CLICKHOUSE_WRITER_URL: z.string().optional(),
+    CLICKHOUSE_DEFAULT_DATABASE: z.string().default("trigger_dev"),
     CLICKHOUSE_KEEP_ALIVE_ENABLED: z.string().default("1"),
     CLICKHOUSE_KEEP_ALIVE_IDLE_SOCKET_TTL_MS: z.coerce.number().int().optional(),
     CLICKHOUSE_MAX_OPEN_CONNECTIONS: z.coerce.number().int().default(10),
     CLICKHOUSE_LOG_LEVEL: z.enum(["log", "error", "warn", "info", "debug"]).default("info"),
     CLICKHOUSE_COMPRESSION_REQUEST: z.string().default("1"),
+
+    // Tinybird configuration
+    TINYBIRD_TOKEN: z.string().optional(),
+    TINYBIRD_BASE_URL: z.string().default("https://api.tinybird.co"),
+
+    // Repository selection
+    DEFAULT_RUNS_LIST_REPOSITORY: z.enum(["clickhouse", "postgres", "tinybird"]).default("clickhouse"),
 
     // Bootstrap
     TRIGGER_BOOTSTRAP_ENABLED: z.string().default("0"),

@@ -8,7 +8,7 @@ export const FEATURE_FLAG = {
 
 const FeatureFlagCatalog = {
   [FEATURE_FLAG.defaultWorkerInstanceGroupId]: z.string(),
-  [FEATURE_FLAG.runsListRepository]: z.enum(["clickhouse", "postgres"]),
+  [FEATURE_FLAG.runsListRepository]: z.enum(["clickhouse", "postgres", "tinybird"]),
 };
 
 type FeatureFlagKey = keyof typeof FeatureFlagCatalog;

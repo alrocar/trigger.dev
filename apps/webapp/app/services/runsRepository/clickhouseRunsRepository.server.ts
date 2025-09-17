@@ -17,11 +17,20 @@ export class ClickHouseRunsRepository implements IRunsRepository {
   }
 
   async listRunIds(options: ListRunsOptions) {
+    console.log("🔍 ClickHouseRunsRepository.listRunIds", {
+      organizationId: options.organizationId,
+      projectId: options.projectId,
+      environmentId: options.environmentId
+    });
+
     const queryBuilder = this.options.clickhouse.taskRuns.queryBuilder();
-    applyRunFiltersToQueryBuilder(
-      queryBuilder,
-      await convertRunListInputOptionsToFilterRunsOptions(options, this.options.prisma)
-    );
+    const filters = await convertRunListInputOptionsToFilterRunsOptions(options, this.options.prisma);
+
+    console.log("🔍 Using filters for ClickHouse query", {
+      filters
+    });
+
+    applyRunFiltersToQueryBuilder(queryBuilder, filters);
 
     if (options.page.cursor) {
       if (options.page.direction === "forward" || !options.page.direction) {
@@ -40,13 +49,20 @@ export class ClickHouseRunsRepository implements IRunsRepository {
       queryBuilder.orderBy("created_at DESC, run_id DESC").limit(options.page.size + 1);
     }
 
+    console.log("🔍 Executing ClickHouse query");
     const [queryError, result] = await queryBuilder.execute();
 
     if (queryError) {
+      console.error("❌ ClickHouse query error", {
+        error: queryError,
+        message: queryError.message,
+        stack: queryError.stack
+      });
       throw queryError;
     }
 
     const runIds = result.map((row) => row.run_id);
+    console.log(`✅ ClickHouse returned ${runIds.length} run IDs`);
     return runIds;
   }
 

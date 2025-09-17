@@ -1,0 +1,11 @@
+DESCRIPTION >
+    Test datasource for smoke testing with UUID, timestamp, message, and number fields
+
+SCHEMA >
+    `id` UUID `json:$.id`,
+    `timestamp` DateTime `json:$.timestamp`,
+    `message` String `json:$.message`,
+    `number` Int32 `json:$.number`
+
+ENGINE "MergeTree"
+ENGINE_SORTING_KEY "timestamp, id"

@@ -15,26 +15,67 @@ function initializeRunsReplicationInstance() {
   const { DATABASE_URL } = process.env;
   invariant(typeof DATABASE_URL === "string", "DATABASE_URL env var not set");
 
-  if (!env.RUN_REPLICATION_CLICKHOUSE_URL) {
-    console.log("🗃️  Runs replication service not enabled");
-    return;
+  // Initialize ClickHouse client
+  let clickhouse: ClickHouse;
+
+  // Check if we have Tinybird token for the replication
+  if (env.TINYBIRD_TOKEN) {
+    console.log("🐦 Using Tinybird for runs replication");
+    console.log(`🐦 Tinybird base URL: ${env.TINYBIRD_BASE_URL}`);
+    console.log(`🐦 Tinybird token length: ${env.TINYBIRD_TOKEN.length}`);
+    console.log(`🐦 Tinybird token prefix: ${env.TINYBIRD_TOKEN.substring(0, 10)}...`);
+
+    // Get ClickHouse reader URL for queries
+    const readerUrl = env.CLICKHOUSE_READER_URL || env.CLICKHOUSE_URL;
+
+    if (!readerUrl) {
+      console.log("❌ Missing CLICKHOUSE_READER_URL or CLICKHOUSE_URL for Tinybird reader");
+      return;
+    }
+
+    const url = new URL(readerUrl);
+    url.searchParams.delete("secure");
+
+    clickhouse = new ClickHouse({
+      tinybirdToken: env.TINYBIRD_TOKEN,
+      tinybirdBaseUrl: env.TINYBIRD_BASE_URL,
+      clickhouseReaderUrl: url.toString(),
+      readerName: "runs-replication-reader",
+      keepAlive: {
+        enabled: env.RUN_REPLICATION_KEEP_ALIVE_ENABLED === "1",
+        idleSocketTtl: env.RUN_REPLICATION_KEEP_ALIVE_IDLE_SOCKET_TTL_MS,
+      },
+      logLevel: env.RUN_REPLICATION_CLICKHOUSE_LOG_LEVEL,
+      compression: {
+        request: true,
+      },
+      maxOpenConnections: env.RUN_REPLICATION_MAX_OPEN_CONNECTIONS,
+    });
+  } else {
+    // Standard ClickHouse replication
+    const replicationUrl = env.RUN_REPLICATION_CLICKHOUSE_URL;
+
+    if (!replicationUrl) {
+      console.log("🗃️  Runs replication service not enabled");
+      return;
+    }
+
+    console.log("🗃️  Runs replication service enabled to " + replicationUrl);
+
+    clickhouse = new ClickHouse({
+      url: replicationUrl,
+      name: "runs-replication",
+      keepAlive: {
+        enabled: env.RUN_REPLICATION_KEEP_ALIVE_ENABLED === "1",
+        idleSocketTtl: env.RUN_REPLICATION_KEEP_ALIVE_IDLE_SOCKET_TTL_MS,
+      },
+      logLevel: env.RUN_REPLICATION_CLICKHOUSE_LOG_LEVEL,
+      compression: {
+        request: true,
+      },
+      maxOpenConnections: env.RUN_REPLICATION_MAX_OPEN_CONNECTIONS,
+    });
   }
-
-  console.log("🗃️  Runs replication service enabled");
-
-  const clickhouse = new ClickHouse({
-    url: env.RUN_REPLICATION_CLICKHOUSE_URL,
-    name: "runs-replication",
-    keepAlive: {
-      enabled: env.RUN_REPLICATION_KEEP_ALIVE_ENABLED === "1",
-      idleSocketTtl: env.RUN_REPLICATION_KEEP_ALIVE_IDLE_SOCKET_TTL_MS,
-    },
-    logLevel: env.RUN_REPLICATION_CLICKHOUSE_LOG_LEVEL,
-    compression: {
-      request: true,
-    },
-    maxOpenConnections: env.RUN_REPLICATION_MAX_OPEN_CONNECTIONS,
-  });
 
   const service = new RunsReplicationService({
     clickhouse: clickhouse,

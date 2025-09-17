@@ -8,6 +8,7 @@ import parseDuration from "parse-duration";
 import { z } from "zod";
 import { timeFilters } from "~/components/runs/v3/SharedFilters";
 import { type PrismaClient } from "~/db.server";
+import { env } from "~/env.server";
 import { FEATURE_FLAG, makeFlags } from "~/v3/featureFlags.server";
 import { startActiveSpan } from "~/v3/tracer.server";
 import { logger } from "../logger.server";
@@ -120,17 +121,17 @@ export interface IRunsRepository {
 export class RunsRepository implements IRunsRepository {
   private readonly clickHouseRunsRepository: ClickHouseRunsRepository;
   private readonly postgresRunsRepository: PostgresRunsRepository;
-  private readonly defaultRepository: "clickhouse" | "postgres";
+  private readonly defaultRepository: "clickhouse" | "postgres" | "tinybird";
   private readonly logger: Logger;
 
   constructor(
     private readonly options: RunsRepositoryOptions & {
-      defaultRepository?: "clickhouse" | "postgres";
+      defaultRepository?: "clickhouse" | "postgres" | "tinybird";
     }
   ) {
     this.clickHouseRunsRepository = new ClickHouseRunsRepository(options);
     this.postgresRunsRepository = new PostgresRunsRepository(options);
-    this.defaultRepository = options.defaultRepository ?? "clickhouse";
+    this.defaultRepository = options.defaultRepository ?? env.DEFAULT_RUNS_LIST_REPOSITORY ?? "clickhouse";
     this.logger = options.logger ?? logger;
   }
 
@@ -148,13 +149,29 @@ export class RunsRepository implements IRunsRepository {
 
       span.setAttribute("repository.name", runsListRepository);
 
-      logger.log("runsListRepository", { runsListRepository });
+      // Enhanced debugging
+      console.log("✅ Repository selection", {
+        runsListRepository,
+        defaultRepository: this.defaultRepository,
+        envSetting: env.DEFAULT_RUNS_LIST_REPOSITORY
+      });
+
+      this.logger.info("Repository selection", {
+        runsListRepository,
+        defaultRepository: this.defaultRepository,
+        envSetting: env.DEFAULT_RUNS_LIST_REPOSITORY
+      });
 
       switch (runsListRepository) {
         case "postgres":
+          console.log("⚠️ Using PostgreSQL repository for runs");
           return this.postgresRunsRepository;
+        case "tinybird":
+          console.log("🐦 Using Tinybird repository for runs");
+          return this.clickHouseRunsRepository;
         case "clickhouse":
         default:
+          console.log("🗃️ Using ClickHouse repository for runs");
           return this.clickHouseRunsRepository;
       }
     });
@@ -170,10 +187,29 @@ export class RunsRepository implements IRunsRepository {
         } catch (error) {
           // If ClickHouse fails, retry with Postgres
           if (repository.name === "clickhouse") {
-            this.logger?.warn("ClickHouse failed, retrying with Postgres", { error });
+            // Enhanced error logging
+            console.error("❌ ClickHouse repository failed, falling back to Postgres", {
+              error,
+              errorMessage: error instanceof Error ? error.message : String(error),
+              errorStack: error instanceof Error ? error.stack : undefined,
+              organizationId: options.organizationId,
+              projectId: options.projectId,
+              environmentId: options.environmentId
+            });
+
+            this.logger?.warn("ClickHouse failed, retrying with Postgres", {
+              error,
+              errorDetails: error instanceof Error ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+              } : String(error)
+            });
+
             return startActiveSpan(
               "runsRepository.listRunIds.fallback",
               async () => {
+                console.log("⚠️ Using PostgreSQL fallback for ClickHouse failure");
                 return await this.postgresRunsRepository.listRunIds(options);
               },
               {
