@@ -2,6 +2,8 @@
  * Utility functions for Tinybird integration
  */
 
+import type { LogLevel } from "@trigger.dev/core/logger";
+
 /**
  * Constructs a Tinybird-compatible ClickHouse URL with token authentication
  * @param baseUrl - The base ClickHouse URL (e.g., http://localhost:7182)
@@ -36,4 +38,34 @@ export function getTinybirdReaderUrl(
   }
   
   return constructTinybirdUrl(baseUrl, tinybirdToken);
+}
+
+/**
+ * Creates a Tinybird configuration object for ClickHouse initialization
+ * @param options - Configuration options for Tinybird setup
+ * @returns Configuration object ready for ClickHouse constructor
+ */
+export function createTinybirdConfig(options: {
+  tinybirdToken: string;
+  tinybirdBaseUrl?: string;
+  clickhouseReaderUrl?: string;
+  clickhouseUrl?: string;
+  readerName?: string;
+}) {
+  const tinybirdReaderUrl = getTinybirdReaderUrl(
+    options.tinybirdToken,
+    options.clickhouseReaderUrl,
+    options.clickhouseUrl
+  );
+  
+  // Log the integration
+  const url = new URL(tinybirdReaderUrl);
+  console.log(`🐦 Tinybird integration enabled with ClickHouse reader at ${url.hostname}:${url.port}`);
+
+  return {
+    tinybirdToken: options.tinybirdToken,
+    tinybirdBaseUrl: options.tinybirdBaseUrl,
+    clickhouseReaderUrl: tinybirdReaderUrl,
+    readerName: options.readerName || "clickhouse-reader",
+  };
 }

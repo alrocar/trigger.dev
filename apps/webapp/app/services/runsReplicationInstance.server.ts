@@ -1,4 +1,4 @@
-import { ClickHouse, getTinybirdReaderUrl } from "@internal/clickhouse";
+import { ClickHouse, createTinybirdConfig } from "@internal/clickhouse";
 import invariant from "tiny-invariant";
 import { env } from "~/env.server";
 import { singleton } from "~/utils/singleton";
@@ -22,28 +22,15 @@ function initializeRunsReplicationInstance() {
   if (env.TINYBIRD_TOKEN) {
     console.log("🐦 Using Tinybird for runs replication");
 
-    const tinybirdReaderUrl = getTinybirdReaderUrl(
-      env.TINYBIRD_TOKEN,
-      env.CLICKHOUSE_READER_URL,
-      env.CLICKHOUSE_URL
-    );
-    
-
-    clickhouse = new ClickHouse({
+    const tinybirdConfig = createTinybirdConfig({
       tinybirdToken: env.TINYBIRD_TOKEN,
       tinybirdBaseUrl: env.TINYBIRD_BASE_URL,
-      clickhouseReaderUrl: tinybirdReaderUrl,
+      clickhouseReaderUrl: env.CLICKHOUSE_READER_URL,
+      clickhouseUrl: env.CLICKHOUSE_URL,
       readerName: "runs-replication-reader",
-      keepAlive: {
-        enabled: env.RUN_REPLICATION_KEEP_ALIVE_ENABLED === "1",
-        idleSocketTtl: env.RUN_REPLICATION_KEEP_ALIVE_IDLE_SOCKET_TTL_MS,
-      },
-      logLevel: env.RUN_REPLICATION_CLICKHOUSE_LOG_LEVEL,
-      compression: {
-        request: true,
-      },
-      maxOpenConnections: env.RUN_REPLICATION_MAX_OPEN_CONNECTIONS,
     });
+
+    clickhouse = new ClickHouse(tinybirdConfig);
   } else {
     // Standard ClickHouse replication
     const replicationUrl = env.RUN_REPLICATION_CLICKHOUSE_URL;

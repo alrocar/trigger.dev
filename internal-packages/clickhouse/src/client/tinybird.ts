@@ -63,7 +63,8 @@ export class TinybirdClient implements ClickhouseReader, ClickhouseWriter {
     this.logger.info("🐦 Initializing Tinybird client", {
       baseUrl: this.baseUrl,
       tokenLength: this.token.length,
-      tokenPrefix: this.maskToken(this.token)
+      tokenPrefix: this.maskToken(this.token),
+      hasFallbackReader: !!this.fallbackReader
     });
 
     this.logEnvironmentVariables();
@@ -199,23 +200,65 @@ export class TinybirdClient implements ClickhouseReader, ClickhouseWriter {
       ? JSON.stringify(responseData)
       : 'Unknown error';
 
+    // Enhanced error logging with more context
     this.logger.error("❌ Tinybird insert failed", {
       statusCode: response.status,
+      statusText: response.statusText,
       datasource: datasourceName,
+      events: eventCount,
       error: responseData,
-      events: eventCount
+      responseHeaders: Object.fromEntries(response.headers.entries()),
+      baseUrl: this.baseUrl,
+      timestamp: new Date().toISOString()
     });
 
-    // Special handling for auth errors
+    // Special handling for different error types
     if (response.status === 401 || response.status === 403 || 
         (responseData.message && typeof responseData.message === 'string' && responseData.message.includes("Invalid token"))) {
       this.logger.error("🔑 Tinybird authentication failed - check your token", {
         tokenLength: this.token.length,
         tokenStart: this.maskToken(this.token),
-        baseUrl: this.baseUrl
+        baseUrl: this.baseUrl,
+        statusCode: response.status,
+        datasource: datasourceName
       });
 
       return [new InsertError(`Tinybird authentication failed for datasource '${datasourceName}': ${errorDetail} - Check your TINYBIRD_TOKEN environment variable`), null];
+    }
+
+    // Handle rate limiting
+    if (response.status === 429) {
+      this.logger.error("⏱️ Tinybird rate limit exceeded", {
+        datasource: datasourceName,
+        events: eventCount,
+        retryAfter: response.headers.get('retry-after'),
+        error: responseData
+      });
+      return [new InsertError(`Tinybird rate limit exceeded for datasource '${datasourceName}': ${errorDetail}`), null];
+    }
+
+    // Handle server errors
+    if (response.status >= 500) {
+      this.logger.error("🔥 Tinybird server error", {
+        statusCode: response.status,
+        datasource: datasourceName,
+        events: eventCount,
+        error: responseData,
+        baseUrl: this.baseUrl
+      });
+      return [new InsertError(`Tinybird server error for datasource '${datasourceName}': ${errorDetail}`), null];
+    }
+
+    // Handle client errors
+    if (response.status >= 400) {
+      this.logger.error("⚠️ Tinybird client error", {
+        statusCode: response.status,
+        datasource: datasourceName,
+        events: eventCount,
+        error: responseData,
+        baseUrl: this.baseUrl
+      });
+      return [new InsertError(`Tinybird client error for datasource '${datasourceName}': ${errorDetail}`), null];
     }
 
     return [new InsertError(`Tinybird insert failed for datasource '${datasourceName}': ${errorDetail}`), null];
@@ -273,13 +316,32 @@ export class TinybirdClient implements ClickhouseReader, ClickhouseWriter {
           datasource: datasourceName,
           events: validatedEvents.length,
           table: req.table,
-          url: url.toString()
+          url: url.toString(),
+          ndjsonLength: ndjson.length,
+          sampleEvent: validatedEvents.length > 0 ? validatedEvents[0] : null
+        });
+
+        this.logger.debug("🌐 Making HTTP request to Tinybird", {
+          method: 'POST',
+          url: url.toString(),
+          headers: Object.keys(headers).reduce((acc, key) => {
+            acc[key] = key.toLowerCase().includes('authorization') ? '[REDACTED]' : headers[key];
+            return acc;
+          }, {} as Record<string, string>),
+          bodySize: ndjson.length
         });
 
         const response = await fetch(url.toString(), {
           method: 'POST',
           headers,
           body: ndjson,
+        });
+
+        this.logger.debug("📡 Received response from Tinybird", {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries())
         });
 
         const responseData = await this.parseResponse(response);
@@ -300,14 +362,37 @@ export class TinybirdClient implements ClickhouseReader, ClickhouseWriter {
       } catch (error: any) {
         const datasourceName = this.extractDatasourceName(req.table);
         
+        // Enhanced error logging for network and other errors
         this.logger.error("❌ Tinybird insert error", {
           error: error.message,
+          errorName: error.name,
           datasource: datasourceName,
           table: req.table,
-          errorStack: error.stack
+          errorStack: error.stack,
+          baseUrl: this.baseUrl,
+          tokenLength: this.token.length,
+          tokenStart: this.maskToken(this.token),
+          timestamp: new Date().toISOString(),
+          // Network-specific error details
+          ...(error.code && { errorCode: error.code }),
+          ...(error.errno && { errorNumber: error.errno }),
+          ...(error.syscall && { systemCall: error.syscall }),
+          ...(error.hostname && { hostname: error.hostname }),
+          ...(error.port && { port: error.port })
         });
         
-        return [new InsertError(`Tinybird insert error for table '${req.table}': ${error.message}`), null];
+        // Provide more specific error messages based on error type
+        let errorMessage = `Tinybird insert error for table '${req.table}': ${error.message}`;
+        
+        if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+          errorMessage = `Tinybird connection failed for table '${req.table}': Unable to connect to ${this.baseUrl} - ${error.message}`;
+        } else if (error.code === 'ETIMEDOUT') {
+          errorMessage = `Tinybird timeout for table '${req.table}': Request timed out to ${this.baseUrl} - ${error.message}`;
+        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          errorMessage = `Tinybird network error for table '${req.table}': Network request failed - ${error.message}`;
+        }
+        
+        return [new InsertError(errorMessage), null];
       }
     };
   }
