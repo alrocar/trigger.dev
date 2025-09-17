@@ -1,5 +1,5 @@
 DESCRIPTION >
-    Main task runs landing datasource with improved schema and worker queue support
+    Main task runs landing datasource with improved schema, worker queue support, version tracking and soft delete capability
 
 SCHEMA >
     `environment_id` String `json:$.environment_id`,
@@ -36,7 +36,9 @@ SCHEMA >
     `cli_version` Nullable(String) `json:$.cli_version`,
     `machine_preset` String `json:$.machine_preset`,
     `output` Nullable(String) `json:$.output`,
-    `error` Nullable(String) `json:$.error`
+    `error` Nullable(String) `json:$.error`,
+    `_version` String `json:$._version`,
+    `_is_deleted` UInt8 `json:$._is_deleted` DEFAULT 0
 
 ENGINE "ReplacingMergeTree"
 ENGINE_PARTITION_KEY "toYYYYMM(created_at)"

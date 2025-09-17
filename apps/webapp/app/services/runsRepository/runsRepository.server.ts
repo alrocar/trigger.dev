@@ -149,13 +149,6 @@ export class RunsRepository implements IRunsRepository {
 
       span.setAttribute("repository.name", runsListRepository);
 
-      // Enhanced debugging
-      console.log("✅ Repository selection", {
-        runsListRepository,
-        defaultRepository: this.defaultRepository,
-        envSetting: env.DEFAULT_RUNS_LIST_REPOSITORY
-      });
-
       this.logger.info("Repository selection", {
         runsListRepository,
         defaultRepository: this.defaultRepository,
@@ -164,14 +157,11 @@ export class RunsRepository implements IRunsRepository {
 
       switch (runsListRepository) {
         case "postgres":
-          console.log("⚠️ Using PostgreSQL repository for runs");
           return this.postgresRunsRepository;
         case "tinybird":
-          console.log("🐦 Using Tinybird repository for runs");
           return this.clickHouseRunsRepository;
         case "clickhouse":
         default:
-          console.log("🗃️ Using ClickHouse repository for runs");
           return this.clickHouseRunsRepository;
       }
     });
@@ -187,16 +177,6 @@ export class RunsRepository implements IRunsRepository {
         } catch (error) {
           // If ClickHouse fails, retry with Postgres
           if (repository.name === "clickhouse") {
-            // Enhanced error logging
-            console.error("❌ ClickHouse repository failed, falling back to Postgres", {
-              error,
-              errorMessage: error instanceof Error ? error.message : String(error),
-              errorStack: error instanceof Error ? error.stack : undefined,
-              organizationId: options.organizationId,
-              projectId: options.projectId,
-              environmentId: options.environmentId
-            });
-
             this.logger?.warn("ClickHouse failed, retrying with Postgres", {
               error,
               errorDetails: error instanceof Error ? {
@@ -209,7 +189,6 @@ export class RunsRepository implements IRunsRepository {
             return startActiveSpan(
               "runsRepository.listRunIds.fallback",
               async () => {
-                console.log("⚠️ Using PostgreSQL fallback for ClickHouse failure");
                 return await this.postgresRunsRepository.listRunIds(options);
               },
               {
