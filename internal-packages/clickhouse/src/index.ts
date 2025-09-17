@@ -19,6 +19,7 @@ import type { Agent as HttpsAgent } from "https";
 
 export type * from "./taskRuns.js";
 export type * from "./client/queryBuilder.js";
+export * from "./client/tinybirdUtils.js";
 
 export type ClickhouseCommonConfig = {
   keepAlive?: {

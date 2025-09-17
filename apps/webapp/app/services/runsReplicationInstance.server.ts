@@ -1,4 +1,4 @@
-import { ClickHouse } from "@internal/clickhouse";
+import { ClickHouse, getTinybirdReaderUrl } from "@internal/clickhouse";
 import invariant from "tiny-invariant";
 import { env } from "~/env.server";
 import { singleton } from "~/utils/singleton";
@@ -22,22 +22,11 @@ function initializeRunsReplicationInstance() {
   if (env.TINYBIRD_TOKEN) {
     console.log("🐦 Using Tinybird for runs replication");
 
-    // Get ClickHouse reader URL for queries
-    const readerUrl = env.CLICKHOUSE_READER_URL || env.CLICKHOUSE_URL;
-
-    if (!readerUrl) {
-      console.log("❌ Missing CLICKHOUSE_READER_URL or CLICKHOUSE_URL for Tinybird reader");
-      return;
-    }
-
-    // Parse the base URL to get host and port
-    const baseUrl = new URL(readerUrl);
-    const host = baseUrl.hostname;
-    const port = baseUrl.port || '7182';
-    const protocol = baseUrl.protocol || 'http:';
-    
-    // Construct the URL with Tinybird token authentication
-    const tinybirdReaderUrl = `${protocol}//default:${env.TINYBIRD_TOKEN}@${host}:${port}/`;
+    const tinybirdReaderUrl = getTinybirdReaderUrl(
+      env.TINYBIRD_TOKEN,
+      env.CLICKHOUSE_READER_URL,
+      env.CLICKHOUSE_URL
+    );
     
 
     clickhouse = new ClickHouse({

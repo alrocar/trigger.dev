@@ -1,4 +1,4 @@
-import { ClickHouse } from "@internal/clickhouse";
+import { ClickHouse, getTinybirdReaderUrl } from "@internal/clickhouse";
 import { env } from "~/env.server";
 import { singleton } from "~/utils/singleton";
 
@@ -7,24 +7,14 @@ export const clickhouseClient = singleton("clickhouseClient", initializeClickhou
 function initializeClickhouseClient() {
   // Check if Tinybird token is set
   if (env.TINYBIRD_TOKEN) {
-    // For Tinybird, we need to construct the ClickHouse reader URL with the token
-    // Tinybird expects the format: http://default:p.eyJ1...@localhost:7182/
-    let readerUrl = env.CLICKHOUSE_READER_URL || env.CLICKHOUSE_URL;
+    const tinybirdReaderUrl = getTinybirdReaderUrl(
+      env.TINYBIRD_TOKEN,
+      env.CLICKHOUSE_READER_URL,
+      env.CLICKHOUSE_URL
+    );
     
-    if (!readerUrl) {
-      throw new Error("Missing CLICKHOUSE_READER_URL or CLICKHOUSE_URL for Tinybird reader");
-    }
-    
-    // Parse the base URL to get host and port
-    const baseUrl = new URL(readerUrl);
-    const host = baseUrl.hostname;
-    const port = baseUrl.port || '7182';
-    const protocol = baseUrl.protocol || 'http:';
-    
-    // Construct the URL with Tinybird token authentication
-    const tinybirdReaderUrl = `${protocol}//default:${env.TINYBIRD_TOKEN}@${host}:${port}/`;
-    
-    console.log(`🐦 Tinybird integration enabled with ClickHouse reader at ${host}:${port}`);
+    const url = new URL(tinybirdReaderUrl);
+    console.log(`🐦 Tinybird integration enabled with ClickHouse reader at ${url.hostname}:${url.port}`);
 
     return new ClickHouse({
       tinybirdToken: env.TINYBIRD_TOKEN,
