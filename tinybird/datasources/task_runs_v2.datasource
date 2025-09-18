@@ -1,0 +1,45 @@
+DESCRIPTION >
+    Main task runs landing datasource with improved schema, worker queue support, version tracking and soft delete capability
+
+SCHEMA >
+    `environment_id` String `json:$.environment_id`,
+    `organization_id` String `json:$.organization_id`,
+    `project_id` String `json:$.project_id`,
+    `run_id` String `json:$.run_id`,
+    `friendly_id` String `json:$.friendly_id`,
+    `task_identifier` String `json:$.task_identifier`,
+    `task_version` String `json:$.task_version`,
+    `queue` String `json:$.queue`,
+    `schedule_id` Nullable(String) `json:$.schedule_id`,
+    `batch_id` Nullable(String) `json:$.batch_id`,
+    `concurrency_key` Nullable(String) `json:$.concurrency_key`,
+    `bulk_action_group_ids` Array(String) `json:$.bulk_action_group_ids[:]`,
+    `worker_queue` String `json:$.worker_queue`,
+    `root_run_id` String `json:$.root_run_id`,
+    `parent_run_id` Nullable(String) `json:$.parent_run_id`,
+    `depth` UInt32 `json:$.depth`,
+    `engine` String `json:$.engine`,
+    `status` String `json:$.status`,
+    `attempt` UInt32 `json:$.attempt`,
+    `tags` Array(String) `json:$.tags[:]`,
+    `created_at` DateTime64(3) `json:$.created_at`,
+    `updated_at` DateTime64(3) `json:$.updated_at`,
+    `started_at` Nullable(DateTime64(3)) `json:$.started_at`,
+    `executed_at` Nullable(DateTime64(3)) `json:$.executed_at`,
+    `completed_at` Nullable(DateTime64(3)) `json:$.completed_at`,
+    `expired_at` Nullable(DateTime64(3)) `json:$.expired_at`,
+    `cancelled_at` Nullable(DateTime64(3)) `json:$.cancelled_at`,
+    `usage_duration_ms` Nullable(UInt64) `json:$.usage_duration_ms`,
+    `cost_in_cents` Nullable(UInt32) `json:$.cost_in_cents`,
+    `base_cost_in_cents` Nullable(UInt32) `json:$.base_cost_in_cents`,
+    `sdk_version` String `json:$.sdk_version`,
+    `cli_version` Nullable(String) `json:$.cli_version`,
+    `machine_preset` String `json:$.machine_preset`,
+    `output` Nullable(String) `json:$.output`,
+    `error` Nullable(String) `json:$.error`,
+    `_version` String `json:$._version`,
+    `_is_deleted` UInt8 `json:$._is_deleted` DEFAULT 0
+
+ENGINE "ReplacingMergeTree"
+ENGINE_PARTITION_KEY "toYYYYMM(created_at)"
+ENGINE_SORTING_KEY "organization_id, project_id, environment_id, created_at, run_id"

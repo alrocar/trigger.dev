@@ -148,9 +148,16 @@ export class ClickhouseClient implements ClickhouseReader, ClickhouseWriter {
 
         let unparsedRows: Array<TOut> = [];
 
+        // Automatically remove database prefixes when using Tinybird
+        let finalQuery = req.query;
+        if (process.env.TINYBIRD_TOKEN && finalQuery.includes('trigger_dev.')) {
+          finalQuery = finalQuery.replace(/trigger_dev\./g, '');
+        }
+
+        // Execute the query with the potentially modified query
         const [clickhouseError, res] = await tryCatch(
           this.client.query({
-            query: req.query,
+            query: finalQuery,
             query_params: validParams?.data,
             format: "JSONEachRow",
             query_id: queryId,
